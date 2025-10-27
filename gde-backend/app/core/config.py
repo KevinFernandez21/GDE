@@ -3,12 +3,18 @@ Configuration settings for the GDE Backend API.
 """
 import os
 from typing import List, Optional
-from pydantic_settings import BaseSettings
-from pydantic import validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import computed_field
 
 
 class Settings(BaseSettings):
     """Application settings."""
+    
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore"
+    )
     
     # Application
     app_name: str = "GDE Backend API"
@@ -27,15 +33,15 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     
-    # CORS
-    allowed_origins: List[str] = ["http://localhost:3000"]
-    allowed_methods: List[str] = ["GET", "POST", "PUT", "DELETE", "PATCH"]
-    allowed_headers: List[str] = ["*"]
+    # CORS - stored as strings, converted to lists via computed fields
+    _allowed_origins_str: str = "http://localhost:3000"
+    _allowed_methods_str: str = "GET,POST,PUT,DELETE,PATCH"
+    _allowed_headers_str: str = "*"
     
     # File Upload
     upload_dir: str = "uploads"
     max_file_size: int = 10485760  # 10MB
-    allowed_file_types: List[str] = ["csv", "xlsx", "xls", "json"]
+    _allowed_file_types_str: str = "csv,xlsx,xls,json"
     
     # Email
     smtp_host: Optional[str] = None
@@ -63,27 +69,33 @@ class Settings(BaseSettings):
     redis_url: Optional[str] = None
     cache_ttl: int = 300  # 5 minutes
     
-    @validator("allowed_origins", pre=True)
-    def parse_cors_origins(cls, v):
-        if isinstance(v, str):
-            return [i.strip() for i in v.split(",")]
-        return v
+    @computed_field
+    @property
+    def allowed_origins(self) -> List[str]:
+        """Parse allowed origins from environment variable."""
+        env_val = os.getenv("ALLOWED_ORIGINS", self._allowed_origins_str)
+        return [i.strip() for i in env_val.split(",") if i.strip()]
     
-    @validator("allowed_methods", pre=True)
-    def parse_cors_methods(cls, v):
-        if isinstance(v, str):
-            return [i.strip() for i in v.split(",")]
-        return v
+    @computed_field
+    @property
+    def allowed_methods(self) -> List[str]:
+        """Parse allowed methods from environment variable."""
+        env_val = os.getenv("ALLOWED_METHODS", self._allowed_methods_str)
+        return [i.strip() for i in env_val.split(",") if i.strip()]
     
-    @validator("allowed_file_types", pre=True)
-    def parse_file_types(cls, v):
-        if isinstance(v, str):
-            return [i.strip() for i in v.split(",")]
-        return v
+    @computed_field
+    @property
+    def allowed_headers(self) -> List[str]:
+        """Parse allowed headers from environment variable."""
+        env_val = os.getenv("ALLOWED_HEADERS", self._allowed_headers_str)
+        return [i.strip() for i in env_val.split(",") if i.strip()]
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    @computed_field
+    @property
+    def allowed_file_types(self) -> List[str]:
+        """Parse allowed file types from environment variable."""
+        env_val = os.getenv("ALLOWED_FILE_TYPES", self._allowed_file_types_str)
+        return [i.strip() for i in env_val.split(",") if i.strip()]
 
 
 # Global settings instance
