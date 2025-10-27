@@ -1,0 +1,47 @@
+# Dockerfile para desarrollo de GDE Backend API
+FROM python:3.11-slim
+
+# Metadatos
+LABEL maintainer="GDE Team <dev@gde-system.com>"
+LABEL description="Backend API para desarrollo - GDE System"
+LABEL version="1.0.0-dev"
+
+# Variables de entorno para desarrollo
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBUG=True \
+    ENVIRONMENT=development
+
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    curl \
+    git \
+    vim \
+    && rm -rf /var/lib/apt/lists/*
+
+# Crear directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos de dependencias
+COPY requirements.txt pyproject.toml ./
+
+# Instalar dependencias de Python (incluyendo dev)
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir pytest pytest-asyncio pytest-cov black flake8 mypy
+
+# Copiar código de la aplicación
+COPY . .
+
+# Crear directorios necesarios
+RUN mkdir -p /app/uploads /app/logs
+
+# Exponer puerto
+EXPOSE 8000
+
+# Comando para desarrollo con hot reload
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

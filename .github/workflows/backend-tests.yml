@@ -1,0 +1,131 @@
+name: Backend Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'gde-backend/**'
+      - '.github/workflows/backend-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'gde-backend/**'
+      - '.github/workflows/backend-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/requirements-test.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      working-directory: ./gde-backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-test.txt
+    
+    - name: Run linters
+      working-directory: ./gde-backend
+      run: |
+        pip install flake8 black isort
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Check code formatting
+        black --check app tests
+        # Check import sorting
+        isort --check-only app tests
+    
+    - name: Run tests with pytest
+      working-directory: ./gde-backend
+      run: |
+        pytest --cov=app --cov-report=xml --cov-report=term -v
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./gde-backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+        fail_ci_if_error: false
+    
+    - name: Generate coverage report
+      working-directory: ./gde-backend
+      if: always()
+      run: |
+        pytest --cov=app --cov-report=html
+    
+    - name: Upload coverage HTML
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: coverage-report-${{ matrix.python-version }}
+        path: gde-backend/htmlcov/
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      working-directory: ./gde-backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety bandit
+    
+    - name: Check for security vulnerabilities in dependencies
+      working-directory: ./gde-backend
+      run: |
+        # Check dependencies for known security vulnerabilities
+        safety check --json || true
+    
+    - name: Run security linter
+      working-directory: ./gde-backend
+      run: |
+        # Run bandit security linter
+        bandit -r app -f json || true
+
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      working-directory: ./gde-backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install mypy
+    
+    - name: Run type checker
+      working-directory: ./gde-backend
+      run: |
+        mypy app --ignore-missing-imports || true
+

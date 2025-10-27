@@ -1,0 +1,20 @@
+# Test dependencies for GDE Backend
+
+# Core testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-xdist>=3.3.0  # For parallel test execution
+pytest-mock>=3.11.0
+
+# Test client and mocking
+httpx>=0.24.0  # Required by TestClient
+faker>=19.0.0  # For generating test data
+
+# Code quality
+coverage[toml]>=7.3.0
+
+# Additional test utilities
+freezegun>=1.2.0  # For mocking datetime
+responses>=0.23.0  # For mocking HTTP requests
+
